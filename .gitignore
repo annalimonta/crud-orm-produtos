@@ -1,0 +1,12 @@
+# Compilados e arquivos de trabalho do BlueJ
+*.class
+*.ctxt
+bluej.pkh
+__SHELL*
+doc/
+
+# Bancos SQLite gerados ao executar a demonstracao e os testes
+*.sqlite
+
+# JUnit usado so para rodar os testes pelo terminal (o BlueJ ja traz o seu)
+junit-platform-console-standalone-*.jar
