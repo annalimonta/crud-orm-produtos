@@ -63,7 +63,8 @@ public class Produto
 ```
 
 A tabela não é criada à mão: o `TableUtils.createTableIfNotExists` do ORMLite
-gera o `CREATE TABLE` a partir dessas anotações (ver print 5).
+gera o `CREATE TABLE` a partir dessas anotações (ver o print "Estado final do
+banco", na seção 3.2).
 
 > **Simplificações em relação ao schema original:** no projeto o `id` é UUID e a
 > categoria é uma chave estrangeira para a tabela `categorias`. Aqui, como a
@@ -83,6 +84,7 @@ gera o `CREATE TABLE` a partir dessas anotações (ver print 5).
 | `DemonstracaoCrud.java`      | Demonstração passo a passo (uma operação por execução). |
 | `ConsultaSQL.java`           | Lê a tabela com **SQL puro via JDBC, sem o ORM**, para conferir o que está gravado no arquivo do banco. |
 | `+libs/`                     | Bibliotecas do tutorial: `sqlite-jdbc-3.46.0.0`, `ormlite-core-6.1`, `ormlite-jdbc-6.1`, `slf4j-api-2.0.13`, `slf4j-simple-2.0.13`. |
+| `simplelogger.properties`    | Manda o log do ORMLite para o `System.out`. Por padrão ele vai para o `System.err`, que o BlueJ pinta de vermelho como se fosse erro. |
 
 ### O repositório
 
@@ -138,6 +140,90 @@ fora do ORM.
 
 ## 3. Evidências de funcionamento
 
+As operações foram demonstradas de duas formas: **no BlueJ**, com testes
+interativos como no tutorial (3.1), e **pelo terminal**, com cada operação numa
+execução separada do programa (3.2).
+
+### 3.1 No BlueJ
+
+#### Projeto compilado
+
+![Projeto no BlueJ](prints/bluej-01-projeto.png)
+
+Projeto aberto e compilado no BlueJ 6.0.1. As bibliotecas da pasta `+libs` foram
+carregadas automaticamente, sem configuração extra. O BlueJ mostra as
+dependências entre as classes: `ProdutoRepository` usa `Database` e `Produto`, e
+a classe de teste usa o repositório.
+
+#### Testes JUnit no BlueJ
+
+![Testes no BlueJ](prints/bluej-02-testes.png)
+
+Botão direito em `ProdutoRepositoryTest` → **Testar Tudo**. Os 6 testes passaram
+com **0 erros e 0 falhas**. A seção "Testes automatizados" (3.2) explica o que
+cada teste comprova.
+
+#### CREATE: `DemonstracaoCrud.criar()`
+
+![CREATE no BlueJ](prints/bluej-03-create.png)
+
+Botão direito em `DemonstracaoCrud` → `void criar()`. A Janela de Terminal do
+BlueJ mostra, em vermelho, a chamada feita (opção *Anotar chamadas de métodos*).
+Logo abaixo aparecem o `CREATE TABLE` gerado pelo ORMLite, os ids 1 a 4 gerados
+pelo banco e a conferência com SQL puro: **4 linhas gravadas** em `produtos.sqlite`.
+
+#### READ: `DemonstracaoCrud.consultar()`
+
+![READ no BlueJ](prints/bluej-04-read.png)
+
+`loadAll()` traz os 4 produtos, `loadFromId(2)` devolve o *Cachorro-quente* e
+`loadFromId(99)` devolve `null`.
+
+#### UPDATE: `DemonstracaoCrud.atualizar(3)`
+
+![UPDATE no BlueJ](prints/bluej-05-update.png)
+
+O produto 3 passa de *Refrigerante lata* / R$ 5,00 para *Refrigerante lata 350ml* /
+R$ 6,00. A linha `id = 3` da tabela mostra `preco_centavos = 600`, e a tabela
+continua com 4 linhas.
+
+#### DELETE: `DemonstracaoCrud.excluir(4)`
+
+![DELETE no BlueJ](prints/bluej-06-delete.png)
+
+Depois do `delete()`, `loadFromId(4)` devolve `null` e a tabela fica com
+**3 linhas**: a linha `id = 4` não existe mais no arquivo do banco.
+
+#### Teste interativo com a bancada de objetos (como no tutorial)
+
+Pelos menus do BlueJ foram criados os objetos `database1`
+(`new Database("produtos.sqlite")`), `produtoR1` (`new ProdutoRepository(database1)`)
+e `produto1` (`new Produto("Pastel de carne", "Comidas", 900)`).
+
+![Objeto transiente](prints/bluej-07-bancada-transiente.png)
+
+**Antes do `create`:** o inspetor de `produto1` mostra `id = 0`. O objeto é
+**transiente**, existe só na memória.
+
+![Create na bancada](prints/bluej-08-bancada-create.png)
+
+**`produtoR1.create(produto1)`:** o mesmo objeto agora tem `id = 5`, gerado pelo
+banco. Os ids 1 a 3 já existiam, e o 4 foi excluído no passo anterior. O
+`AUTOINCREMENT` do SQLite não reaproveita ids.
+
+![Update e delete na bancada](prints/bluej-09-bancada-update-delete.png)
+
+**Update e delete pela bancada:**
+- O preço foi alterado com `produto1.setPrecoCentavos(950)` e gravado com
+  `produtoR1.update(produto1)` (1º diálogo). A conferência com SQL puro
+  (`ConsultaSQL.imprimirTabela`) mostra a linha `id = 5` com
+  `preco_centavos = 950`.
+- Em seguida, `produtoR1.delete(produto1)` (2º diálogo) e `produtoR1.loadFromId(5)`,
+  que devolve `null` (3º diálogo). A nova conferência mostra que a linha
+  `id = 5` foi apagada do banco.
+
+### 3.2 Pelo terminal
+
 Cada operação foi executada **em uma execução separada do programa**, começando de
 um banco vazio. Assim, quando a consulta (passo 2) encontra os produtos, isso
 comprova que eles foram lidos do **arquivo `produtos.sqlite`**, e não da memória
@@ -147,7 +233,7 @@ Ao final de cada operação, a classe `ConsultaSQL` faz um `SELECT * FROM produt
 direto pelo driver JDBC, sem ORMLite e sem a classe `Produto`, e mostra o que de
 fato está gravado na tabela.
 
-### Print 1: CREATE, cadastro de produtos
+#### Print 1: CREATE, cadastro de produtos
 
 ```
 java -cp ".;+libs/*" DemonstracaoCrud criar
@@ -163,7 +249,7 @@ java -cp ".;+libs/*" DemonstracaoCrud criar
 - A conferência com SQL puro mostra as **4 linhas gravadas** no arquivo, com
   os nomes de coluna do mapeamento (`preco_centavos`, `criado_em`).
 
-### Print 2: READ, consulta por listagem e por identificador
+#### Print 2: READ, consulta por listagem e por identificador
 
 ```
 java -cp ".;+libs/*" DemonstracaoCrud consultar
@@ -178,7 +264,7 @@ java -cp ".;+libs/*" DemonstracaoCrud consultar
   devolve o *Cachorro-quente*.
 - `loadFromId(99)` devolve `null`, porque não existe produto com esse id.
 
-### Print 3: UPDATE, alteração de um produto existente
+#### Print 3: UPDATE, alteração de um produto existente
 
 ```
 java -cp ".;+libs/*" DemonstracaoCrud atualizar 3
@@ -194,7 +280,7 @@ java -cp ".;+libs/*" DemonstracaoCrud atualizar 3
   e `preco_centavos = 600`. Continua havendo 4 linhas, porque o update alterou a
   linha existente e não criou outra.
 
-### Print 4: DELETE, exclusão de um produto
+#### Print 4: DELETE, exclusão de um produto
 
 ```
 java -cp ".;+libs/*" DemonstracaoCrud excluir 4
@@ -208,7 +294,7 @@ java -cp ".;+libs/*" DemonstracaoCrud excluir 4
 - Na tabela (SQL puro), a linha `id = 4` **não existe mais**: restam 3 linhas
   no arquivo do banco.
 
-### Print 5: Estado final do banco, conferido fora do ORM
+#### Print 5: Estado final do banco, conferido fora do ORM
 
 ```
 java -cp ".;+libs/*" ConsultaSQL produtos.sqlite
@@ -223,7 +309,7 @@ Execução independente, que só lê o arquivo `produtos.sqlite` com SQL:
 - **Dados:** o resultado final das quatro operações. Os produtos 1 e 2 estão
   como foram cadastrados, o 3 tem os valores atualizados e o 4 foi excluído.
 
-### Print 6: Testes automatizados (JUnit 5)
+#### Print 6: Testes automatizados (JUnit 5)
 
 ![Testes](prints/06-testes.png)
 
@@ -250,20 +336,22 @@ contam as linhas com SQL puro (`ConsultaSQL.contarProdutos`).
 1. Abra a pasta do projeto em **Projeto → Abrir Projeto**. As bibliotecas da
    pasta `+libs` são carregadas automaticamente pelo BlueJ. Se preferir, elas
    também podem ser adicionadas em *Preferências → Bibliotecas*, como no tutorial.
-2. Compile o projeto.
+2. Clique em **Compilar**.
 3. **Testes interativos**, como no tutorial:
    - botão direito em `Database` → `new Database("produtos.sqlite")`;
    - botão direito em `ProdutoRepository` → `new ProdutoRepository(database1)`;
-   - botão direito em `Produto` → `new Produto("Pastel de queijo", "Comidas", 800)`;
-     ao inspecionar o objeto, `id = 0`;
-   - no objeto do repositório: `create(produto1)` (agora o `id` foi gerado),
-     `loadAll()`, `loadFromId(1)`;
-   - `produto1.setPrecoCentavos(900)` e depois `update(produto1)`;
-   - `delete(produto1)` e depois `loadFromId(1)`, que devolve `null`.
+   - botão direito em `Produto` → `new Produto("Pastel de carne", "Comidas", 900)`;
+     com dois cliques no objeto `produto1` o inspetor mostra `id = 0`;
+   - no objeto `produtoR1`: `create(produto1)` (o `id` passa a ser o gerado pelo
+     banco), `loadAll()`, `loadFromId(...)`;
+   - `produto1.setPrecoCentavos(950)` e depois `produtoR1.update(produto1)`;
+   - `produtoR1.delete(produto1)` e depois `loadFromId(...)`, que devolve `null`;
+   - para ver o que está gravado no banco: botão direito em `ConsultaSQL` →
+     `imprimirTabela("produtos.sqlite")`.
 4. **Demonstração:** botão direito em `DemonstracaoCrud` e chame `criar()`,
-   `consultar()`, `atualizar(3)` e `excluir(4)`.
-5. **Testes automatizados:** botão direito em `ProdutoRepositoryTest` → *Run All*
-   (ou o botão *Run Tests*).
+   `consultar()`, `atualizar(3)` e `excluir(4)`. Na Janela de Terminal, a opção
+   *Opções → Anotar chamadas de métodos* mostra cada chamada feita.
+5. **Testes automatizados:** botão direito em `ProdutoRepositoryTest` → **Testar Tudo**.
 
 ### Pelo terminal (Windows / PowerShell)
 
